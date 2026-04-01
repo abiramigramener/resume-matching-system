@@ -12,6 +12,6 @@ pytesseract==0.3.13
 pillow==11.1.0
 easyocr==1.7.2
 sentence-transformers==3.4.0
-faiss-cpu==1.10.0
+faiss-cpu==1.13.2
 openai==1.57.0
 python-dotenv==1.0.1

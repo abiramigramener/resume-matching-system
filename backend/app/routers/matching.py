@@ -9,12 +9,17 @@ router = APIRouter()
 
 @router.post("/match")
 async def match_candidates(
-    job_description: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(default=""),
+    required_experience: int = Form(default=0),
     top_k: int = Form(default=10),
     db: Session = Depends(get_db)
 ):
-    if not job_description.strip():
-        raise HTTPException(400, "Job description is required")
+    # Combine title and description for matching
+    job_description = f"{title}\n\n{description}".strip()
+    
+    if not job_description:
+        raise HTTPException(400, "Job title and description are required")
 
     candidates = db.query(Candidate).all()
     if not candidates:
@@ -30,10 +35,13 @@ async def match_candidates(
         if not candidate:
             continue
         results.append({
-            "id": candidate.id,
-            "name": candidate.name,
-            "email": candidate.email,
-            "skills": candidate.skills or "",
+            "candidate": {
+                "id": candidate.id,
+                "name": candidate.name,
+                "email": candidate.email,
+                "skills": candidate.skills or "",
+                "resume_text": candidate.resume_text or ""
+            },
             "score": round(score * 100, 2),
         })
 
