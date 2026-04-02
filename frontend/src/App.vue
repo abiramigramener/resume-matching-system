@@ -58,7 +58,6 @@
       <CandidateInsight 
         v-if="selectedMatch"
         :candidate="selectedMatch.candidate"
-        :insights="selectedMatch.insights"
         :match-score="selectedMatch.score"
         @close="closeModal"
       />

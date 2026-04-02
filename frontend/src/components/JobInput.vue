@@ -71,6 +71,7 @@ import { ref } from 'vue'
 import { useMatchingStore } from '../stores/matchingStore'
 
 const store = useMatchingStore()
+const emit = defineEmits(['job-submitted'])
 
 const jobData = ref({
   title: '',
@@ -99,21 +100,22 @@ const submitJob = async () => {
 
   const form = new FormData()
   form.append('title', jobData.value.title)
+  form.append('description', jobData.value.description)
   form.append('required_experience', jobData.value.required_experience)
 
   if (selectedFile.value) {
     form.append('file', selectedFile.value)
-  } else if (jobData.value.description.trim()) {
-    form.append('description', jobData.value.description)
-  } else {
-    status.value = '❌ Please provide job description or upload a file'
+  }
+
+  if (!selectedFile.value && !jobData.value.description.trim()) {
+    status.value = '❌ Please provide a job description or upload a file'
     isLoading.value = false
     return
   }
 
   try {
     await store.matchJob(form)
-    status.value = '✅ Job submitted successfully!'
+    emit('job-submitted')
   } catch (err) {
     status.value = '❌ Failed to process job: ' + (err.response?.data?.detail || err.message)
   } finally {

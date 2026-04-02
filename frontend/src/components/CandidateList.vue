@@ -28,15 +28,12 @@
           </div>
         </div>
 
-        <div class="bg-gray-50 px-6 py-4 flex gap-4 border-t">
+        <div class="bg-gray-50 px-6 py-4 border-t">
           <button
             @click="showInsights(match)"
-            class="flex-1 bg-white border border-gray-300 hover:border-blue-500 py-3 rounded-xl font-medium transition"
+            class="w-full bg-white border border-gray-300 hover:border-blue-500 py-3 rounded-xl font-medium transition"
           >
             View AI Insights
-          </button>
-          <button class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition">
-            Shortlist
           </button>
         </div>
       </div>

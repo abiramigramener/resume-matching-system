@@ -1,7 +1,6 @@
-# app/services/document_parser.py
-import re
+﻿import re
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 import numpy as np
 from PIL import Image
 import pytesseract
@@ -9,27 +8,96 @@ import easyocr
 from docx import Document
 import openpyxl
 from pptx import Presentation
-import fitz  # PyMuPDF
+import fitz
 from io import BytesIO
 from fastapi import UploadFile
 
-# Initialize EasyOCR once
 reader = easyocr.Reader(['en'], gpu=False)
 
-COMMON_SKILLS = {"python","java","javascript","react","vue","angular","fastapi","django","flask","aws","azure","docker","kubernetes","sql","postgresql","mongodb","machine learning","llm","nlp","ai","data science","devops","git","jenkins","html","css","excel","powerpoint"}
+SKILL_ALIASES = {
+    "machine learning":     ["machine learning", "ml model", "supervised learning", "unsupervised learning"],
+    "deep learning":        ["deep learning", "neural network", "neural networks"],
+    "nlp":                  ["nlp", "natural language processing", "text mining", "text analytics"],
+    "computer vision":      ["computer vision", "image recognition", "object detection"],
+    "data science":         ["data science", "data scientist"],
+    "data analysis":        ["data analysis", "data analyst", "data analytics", "eda", "exploratory data analysis"],
+    "data visualization":   ["data visualization", "data viz", "tableau", "power bi", "powerbi", "looker", "matplotlib", "seaborn", "plotly"],
+    "statistics":           ["statistics", "statistical analysis", "statistical modeling", "hypothesis testing"],
+    "feature engineering":  ["feature engineering", "feature selection"],
+    "model deployment":     ["model deployment", "mlops", "model serving"],
+    "time series":          ["time series", "forecasting", "arima"],
+    "llm":                  ["llm", "large language model", "gpt", "bert", "transformers", "huggingface"],
+    "a/b testing":          ["a/b testing", "ab testing", "split testing"],
+    "python":               ["python"],
+    "pandas":               ["pandas"],
+    "numpy":                ["numpy"],
+    "scikit-learn":         ["scikit-learn", "sklearn", "scikit learn"],
+    "tensorflow":           ["tensorflow"],
+    "keras":                ["keras"],
+    "pytorch":              ["pytorch"],
+    "xgboost":              ["xgboost", "lightgbm", "gradient boosting"],
+    "scipy":                ["scipy"],
+    "jupyter":              ["jupyter"],
+    "sql":                  ["sql", "mysql", "postgresql", "postgres", "sqlite"],
+    "nosql":                ["mongodb", "cassandra", "dynamodb", "nosql"],
+    "spark":                ["spark", "pyspark", "apache spark"],
+    "hadoop":               ["hadoop", "hive", "hdfs"],
+    "kafka":                ["kafka"],
+    "airflow":              ["airflow", "luigi"],
+    "aws":                  ["aws", "amazon web services", "sagemaker"],
+    "azure":                ["azure", "microsoft azure"],
+    "gcp":                  ["gcp", "google cloud", "bigquery", "dataflow"],
+    "docker":               ["docker"],
+    "kubernetes":           ["kubernetes", "k8s"],
+    "git":                  ["git", "github", "gitlab"],
+    "linux":                ["linux", "unix", "bash", "shell scripting"],
+    "ci/cd":                ["ci/cd", "jenkins", "github actions"],
+    "javascript":           ["javascript"],
+    "typescript":           ["typescript"],
+    "react":                ["react", "reactjs"],
+    "vue":                  ["vue", "vuejs"],
+    "angular":              ["angular"],
+    "java":                 ["java"],
+    "scala":                ["scala"],
+    "r":                    ["r programming", "rstudio", "tidyverse"],
+    "excel":                ["excel", "spreadsheet"],
+    "power bi":             ["power bi", "powerbi"],
+    "tableau":              ["tableau"],
+    "api":                  ["rest api", "restful api", "fastapi", "flask", "django"],
+    "devops":               ["devops"],
+    "mlflow":               ["mlflow"],
+    "reinforcement learning": ["reinforcement learning"],
+}
 
-async def extract_text_from_file(file: UploadFile) -> str:
+
+def _normalize(text):
+    text = text.lower()
+    text = re.sub(r'[\n\r\t]+', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
+def extract_skills(text):
+    normalized = _normalize(text)
+    found = []
+    for canonical, aliases in SKILL_ALIASES.items():
+        for alias in aliases:
+            pattern = r'(?<![a-zA-Z])' + re.escape(alias) + r'(?![a-zA-Z])'
+            if re.search(pattern, normalized):
+                found.append(canonical)
+                break
+    return list(dict.fromkeys(found))
+
+
+async def extract_text_from_file(file):
     if not file or not file.filename:
         return ""
-
     filename = file.filename.lower()
     ext = Path(filename).suffix
     text = ""
-
     try:
         await file.seek(0)
         contents = await file.read()
-
         if ext == '.pdf':
             text = extract_from_pdf(contents)
         elif ext in ['.doc', '.docx']:
@@ -40,16 +108,11 @@ async def extract_text_from_file(file: UploadFile) -> str:
             text = extract_from_pptx(contents)
         elif ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
             text = extract_from_image(contents)
-        elif ext == '.txt':
-            text = contents.decode('utf-8', errors='ignore')
         else:
             text = contents.decode('utf-8', errors='ignore')
-
     except Exception as e:
         print(f"Extraction error for {filename}: {e}")
-        text = ""   # fallback to empty instead of crashing
-
-    # If no text extracted from PDF (scanned), try OCR only if Tesseract is available
+        text = ""
     if ext == '.pdf' and len(text.strip()) < 50:
         try:
             await file.seek(0)
@@ -57,11 +120,10 @@ async def extract_text_from_file(file: UploadFile) -> str:
             text = fallback_ocr(contents)
         except Exception as ocr_err:
             print(f"OCR fallback failed: {ocr_err}")
-            # Don't crash - return whatever text we have
+    return text.strip()
 
-    return clean_text(text)
 
-def extract_from_pdf(contents: bytes) -> str:
+def extract_from_pdf(contents):
     doc = fitz.open(stream=contents, filetype="pdf")
     text = ""
     for page in doc:
@@ -76,21 +138,21 @@ def extract_from_pdf(contents: bytes) -> str:
     return text
 
 
-def extract_from_docx(contents: bytes) -> str:
+def extract_from_docx(contents):
     doc = Document(BytesIO(contents))
     return "\n".join([para.text for para in doc.paragraphs])
 
 
-def extract_from_excel(contents: bytes) -> str:
+def extract_from_excel(contents):
     wb = openpyxl.load_workbook(BytesIO(contents), read_only=True)
     text = ""
     for sheet in wb:
         for row in sheet.iter_rows(values_only=True):
-            text += " | ".join([str(cell) if cell is not None else "" for cell in row]) + "\n"
+            text += " | ".join([str(c) if c is not None else "" for c in row]) + "\n"
     return text
 
 
-def extract_from_pptx(contents: bytes) -> str:
+def extract_from_pptx(contents):
     prs = Presentation(BytesIO(contents))
     text = ""
     for slide in prs.slides:
@@ -100,7 +162,7 @@ def extract_from_pptx(contents: bytes) -> str:
     return text
 
 
-def extract_from_image(contents: bytes) -> str:
+def extract_from_image(contents):
     img = Image.open(BytesIO(contents))
     text = pytesseract.image_to_string(img)
     if len(text.strip()) < 30:
@@ -109,38 +171,49 @@ def extract_from_image(contents: bytes) -> str:
     return text
 
 
-def fallback_ocr(contents: bytes) -> str:
+def fallback_ocr(contents):
     try:
         img = Image.open(BytesIO(contents))
         return pytesseract.image_to_string(img)
-    except:
+    except Exception:
         return ""
 
 
-def clean_text(text: str) -> str:
-    return re.sub(r'\s+', ' ', text).strip()
-
-
-def parse_structured_data(text: str) -> Dict:
-    skills = [skill for skill in COMMON_SKILLS if skill.lower() in text.lower()]
-    
+def parse_structured_data(text):
+    skills = extract_skills(text)
     exp_patterns = [
         r'(\d+)\+?\s*(?:years?|yrs?)\s*(?:of)?\s*(?:experience|exp)',
-        r'(\d+)\s*(?:years?|yrs?)\s*(?:exp|experience)'
+        r'(\d+)\s*(?:years?|yrs?)\s*(?:exp|experience)',
     ]
     experience = 0
     for pattern in exp_patterns:
-        match = re.search(pattern, text, re.I)
-        if match:
-            experience = int(match.group(1))
+        m = re.search(pattern, text, re.I)
+        if m:
+            experience = int(m.group(1))
             break
-    
+    phone_match = re.search(r'(\+?\d[\d\s\-().]{7,}\d)', text)
+    phone = phone_match.group(1).strip() if phone_match else None
+    email_match = re.search(r'[\w.\-+]+@[\w\-]+\.[a-zA-Z]{2,}', text)
+    email = email_match.group(0) if email_match else None
+    name = None
+    skip_words = {"resume", "curriculum", "vitae", "cv", "profile", "summary",
+                  "objective", "contact", "details", "information"}
+    for line in text.splitlines():
+        line = line.strip()
+        words = line.split()
+        if (2 <= len(words) <= 4
+                and all(re.match(r"^[a-zA-Z.\-']+$", w) for w in words)
+                and not any(w.lower() in skip_words for w in words)
+                and line[0].isupper()):
+            name = line
+            break
     edu_keywords = ["bachelor", "master", "phd", "b.tech", "m.tech", "bsc", "msc", "degree"]
     education = next((kw.capitalize() for kw in edu_keywords if kw in text.lower()), "Not Specified")
-    
     return {
-        "skills": list(set(skills)),
+        "skills": skills,
         "experience_years": experience,
         "education": education,
-        "raw_extracted_text": text[:2000]
+        "phone": phone,
+        "email": email,
+        "name": name,
     }

@@ -7,5 +7,7 @@ class Candidate(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     email = Column(String, unique=True, index=True)
+    phone = Column(String, nullable=True)
     resume_text = Column(Text)
     skills = Column(Text)
+    filename = Column(String, nullable=True)
