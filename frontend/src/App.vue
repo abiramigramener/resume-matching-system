@@ -1,116 +1,105 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Navbar -->
-    <nav class="bg-white shadow-sm border-b">
-      <div class="max-w-7xl mx-auto px-6 py-4">
-        <div class="flex items-center justify-between">
-          <h1 class="text-2xl font-bold text-blue-600">Resume Matcher</h1>
-          <div class="flex gap-8 text-sm font-medium">
-            <button
-              @click="currentView = 'upload'"
-              :class="currentView === 'upload' ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'text-gray-600 hover:text-gray-800'"
-            >
-              1. Upload Resumes
-            </button>
-            <button
-              @click="currentView = 'job'"
-              :class="currentView === 'job' ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'text-gray-600 hover:text-gray-800'"
-            >
-              2. Enter Job Description
-            </button>
-            <button
-              @click="currentView = 'results'"
-              :class="currentView === 'results' ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'text-gray-600 hover:text-gray-800'"
-              :disabled="store.matches.length === 0"
-            >
-              3. View Matches
-            </button>
+  <div class="min-h-screen bg-slate-50">
+
+    <!-- Top Nav -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+      <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <!-- Logo -->
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
           </div>
+          <span class="font-semibold text-slate-900 text-[15px] tracking-tight">ResumeMatch</span>
         </div>
+
+        <!-- Step Nav -->
+        <nav class="flex items-center gap-1" role="tablist">
+          <button
+            v-for="(step, i) in steps"
+            :key="step.id"
+            role="tab"
+            :aria-selected="currentView === step.id"
+            :disabled="step.id === 'results' && store.matches.length === 0"
+            @click="currentView = step.id"
+            class="relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="currentView === step.id
+              ? 'bg-indigo-50 text-indigo-700'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'"
+          >
+            <span
+              class="w-5 h-5 rounded-full text-xs flex items-center justify-center font-semibold shrink-0"
+              :class="currentView === step.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'"
+            >{{ i + 1 }}</span>
+            {{ step.label }}
+          </button>
+        </nav>
       </div>
-    </nav>
+    </header>
 
-    <div class="max-w-7xl mx-auto px-6 py-8">
-      <!-- View 1: Resume Upload -->
-      <ResumeUpload v-if="currentView === 'upload'" />
-
-      <!-- View 2: Job Input -->
-      <JobInput 
-        v-else-if="currentView === 'job'" 
-        @job-submitted="goToResults"
-      />
-
-      <!-- View 3: Results -->
-      <div v-else-if="currentView === 'results'">
-        <CandidateList 
-          :matches="store.matches" 
+    <!-- Page Content -->
+    <main class="max-w-6xl mx-auto px-6 py-10">
+      <Transition name="fade" mode="out-in">
+        <ResumeUpload v-if="currentView === 'upload'" key="upload" />
+        <JobInput v-else-if="currentView === 'job'" key="job" @job-submitted="goToResults" />
+        <CandidateList
+          v-else-if="currentView === 'results'"
+          key="results"
+          :matches="store.matches"
           @show-insight="showInsight"
           @back="currentView = 'job'"
         />
-      </div>
-    </div>
+      </Transition>
+    </main>
 
     <!-- Insight Modal -->
-    <div 
-      v-if="showModal" 
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-    >
-      <CandidateInsight 
-        v-if="selectedMatch"
-        :candidate="selectedMatch.candidate"
-        :match-score="selectedMatch.score"
-        @close="closeModal"
-      />
-    </div>
+    <Transition name="fade">
+      <div
+        v-if="showModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style="background: rgba(15,23,42,0.55); backdrop-filter: blur(4px);"
+        @click.self="closeModal"
+        role="dialog"
+        aria-modal="true"
+      >
+        <Transition name="slide-up">
+          <CandidateInsight
+            v-if="selectedMatch"
+            :candidate="selectedMatch.candidate"
+            :match-score="selectedMatch.score"
+            @close="closeModal"
+          />
+        </Transition>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useMatchingStore } from './stores/matchingStore'
-
-// Import Components
 import ResumeUpload from './components/ResumeUpload.vue'
 import JobInput from './components/JobInput.vue'
 import CandidateList from './components/CandidateList.vue'
 import CandidateInsight from './components/CandidateInsight.vue'
 
 const store = useMatchingStore()
-
-const currentView = ref('upload')     // 'upload' | 'job' | 'results'
+const currentView = ref('upload')
 const showModal = ref(false)
 const selectedMatch = ref(null)
 
-// Go to results after job is submitted
-const goToResults = () => {
-  currentView.value = 'results'
-}
+const steps = [
+  { id: 'upload', label: 'Upload Resumes' },
+  { id: 'job',    label: 'Job Description' },
+  { id: 'results', label: 'View Matches' },
+]
 
-// Show AI Insights in modal
-const showInsight = (match) => {
-  selectedMatch.value = match
-  showModal.value = true
-}
+const goToResults = () => { currentView.value = 'results' }
+const showInsight = (match) => { selectedMatch.value = match; showModal.value = true }
+const closeModal = () => { showModal.value = false; selectedMatch.value = null }
 
-const closeModal = () => {
-  showModal.value = false
-  selectedMatch.value = null
-}
-
-// Optional: Auto load last matches if any
 onMounted(() => {
-  if (store.matches.length > 0) {
-    currentView.value = 'results'
-  }
+  if (store.matches.length > 0) currentView.value = 'results'
 })
 </script>
-
-<style>
-/* Optional: Smooth transition */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
-</style>
