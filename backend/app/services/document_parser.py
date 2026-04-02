@@ -1,4 +1,4 @@
-﻿import re
+import re
 from pathlib import Path
 from typing import Dict, List
 import numpy as np
@@ -14,6 +14,7 @@ from fastapi import UploadFile
 
 reader = easyocr.Reader(['en'], gpu=False)
 
+# canonical skill name -> list of aliases (all lowercase)
 SKILL_ALIASES = {
     "machine learning":     ["machine learning", "ml model", "supervised learning", "unsupervised learning"],
     "deep learning":        ["deep learning", "neural network", "neural networks"],
@@ -38,7 +39,7 @@ SKILL_ALIASES = {
     "xgboost":              ["xgboost", "lightgbm", "gradient boosting"],
     "scipy":                ["scipy"],
     "jupyter":              ["jupyter"],
-    "sql":                  ["sql", "mysql", "postgresql", "postgres", "sqlite"],
+    "sql":                  ["sql", "mysql", "postgresql", "postgres", "sqlite", "t-sql", "pl/sql"],
     "nosql":                ["mongodb", "cassandra", "dynamodb", "nosql"],
     "spark":                ["spark", "pyspark", "apache spark"],
     "hadoop":               ["hadoop", "hive", "hdfs"],
@@ -70,14 +71,15 @@ SKILL_ALIASES = {
 }
 
 
-def _normalize(text):
+
+def _normalize(text: str) -> str:
     text = text.lower()
     text = re.sub(r'[\n\r\t]+', ' ', text)
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
 
-def extract_skills(text):
+def extract_skills(text: str) -> List[str]:
     normalized = _normalize(text)
     found = []
     for canonical, aliases in SKILL_ALIASES.items():
@@ -89,7 +91,7 @@ def extract_skills(text):
     return list(dict.fromkeys(found))
 
 
-async def extract_text_from_file(file):
+async def extract_text_from_file(file: UploadFile) -> str:
     if not file or not file.filename:
         return ""
     filename = file.filename.lower()
@@ -123,7 +125,7 @@ async def extract_text_from_file(file):
     return text.strip()
 
 
-def extract_from_pdf(contents):
+def extract_from_pdf(contents: bytes) -> str:
     doc = fitz.open(stream=contents, filetype="pdf")
     text = ""
     for page in doc:
@@ -138,12 +140,12 @@ def extract_from_pdf(contents):
     return text
 
 
-def extract_from_docx(contents):
+def extract_from_docx(contents: bytes) -> str:
     doc = Document(BytesIO(contents))
     return "\n".join([para.text for para in doc.paragraphs])
 
 
-def extract_from_excel(contents):
+def extract_from_excel(contents: bytes) -> str:
     wb = openpyxl.load_workbook(BytesIO(contents), read_only=True)
     text = ""
     for sheet in wb:
@@ -152,7 +154,7 @@ def extract_from_excel(contents):
     return text
 
 
-def extract_from_pptx(contents):
+def extract_from_pptx(contents: bytes) -> str:
     prs = Presentation(BytesIO(contents))
     text = ""
     for slide in prs.slides:
@@ -162,7 +164,7 @@ def extract_from_pptx(contents):
     return text
 
 
-def extract_from_image(contents):
+def extract_from_image(contents: bytes) -> str:
     img = Image.open(BytesIO(contents))
     text = pytesseract.image_to_string(img)
     if len(text.strip()) < 30:
@@ -171,7 +173,7 @@ def extract_from_image(contents):
     return text
 
 
-def fallback_ocr(contents):
+def fallback_ocr(contents: bytes) -> str:
     try:
         img = Image.open(BytesIO(contents))
         return pytesseract.image_to_string(img)
@@ -179,8 +181,9 @@ def fallback_ocr(contents):
         return ""
 
 
-def parse_structured_data(text):
+def parse_structured_data(text: str) -> Dict:
     skills = extract_skills(text)
+
     exp_patterns = [
         r'(\d+)\+?\s*(?:years?|yrs?)\s*(?:of)?\s*(?:experience|exp)',
         r'(\d+)\s*(?:years?|yrs?)\s*(?:exp|experience)',
@@ -191,10 +194,13 @@ def parse_structured_data(text):
         if m:
             experience = int(m.group(1))
             break
+
     phone_match = re.search(r'(\+?\d[\d\s\-().]{7,}\d)', text)
     phone = phone_match.group(1).strip() if phone_match else None
+
     email_match = re.search(r'[\w.\-+]+@[\w\-]+\.[a-zA-Z]{2,}', text)
     email = email_match.group(0) if email_match else None
+
     name = None
     skip_words = {"resume", "curriculum", "vitae", "cv", "profile", "summary",
                   "objective", "contact", "details", "information"}
@@ -207,8 +213,10 @@ def parse_structured_data(text):
                 and line[0].isupper()):
             name = line
             break
+
     edu_keywords = ["bachelor", "master", "phd", "b.tech", "m.tech", "bsc", "msc", "degree"]
     education = next((kw.capitalize() for kw in edu_keywords if kw in text.lower()), "Not Specified")
+
     return {
         "skills": skills,
         "experience_years": experience,
