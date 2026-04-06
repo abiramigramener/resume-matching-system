@@ -87,6 +87,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import axios from 'axios'
+import apiClient from '../../shared/api/client'
 
 const fileInput = ref(null)
 const isDragging = ref(false)
@@ -109,7 +110,7 @@ const processFiles = async (files) => {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      await axios.post('http://localhost:8000/api/resumes/upload', fd, {
+      await apiClient.post('/api/resumes/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       item.status = 'done'

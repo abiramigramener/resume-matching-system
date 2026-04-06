@@ -165,7 +165,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
-import { useMatchingStore } from '../stores/matchingStore'
+import { useMatchingStore } from './matchingStore'
 
 const props = defineProps({
   candidate: { type: Object, required: true },

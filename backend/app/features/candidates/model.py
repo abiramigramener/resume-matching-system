@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text
-from app.database import Base
+from app.core.database import Base
+
 
 class Candidate(Base):
     __tablename__ = "candidates"

@@ -105,7 +105,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useMatchingStore } from '../stores/matchingStore'
+import { useMatchingStore } from './matchingStore'
 
 const store = useMatchingStore()
 const emit = defineEmits(['job-submitted'])

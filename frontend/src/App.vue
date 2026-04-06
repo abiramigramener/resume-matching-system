@@ -78,11 +78,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useMatchingStore } from './stores/matchingStore'
-import ResumeUpload from './components/ResumeUpload.vue'
-import JobInput from './components/JobInput.vue'
-import CandidateList from './components/CandidateList.vue'
-import CandidateInsight from './components/CandidateInsight.vue'
+import ResumeUpload from './features/upload/ResumeUpload.vue'
+import JobInput from './features/matching/JobInput.vue'
+import CandidateList from './features/matching/CandidateList.vue'
+import CandidateInsight from './features/matching/CandidateInsight.vue'
+import { useMatchingStore } from './features/matching/matchingStore'
 
 const store = useMatchingStore()
 const currentView = ref('upload')
