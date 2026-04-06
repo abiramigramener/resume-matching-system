@@ -16,3 +16,5 @@ faiss-cpu==1.13.2
 openai==1.57.0
 python-dotenv==1.0.1
 groq
+pydantic-settings>=2.0.0
+alembic>=1.13.0

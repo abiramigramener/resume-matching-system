@@ -17,11 +17,19 @@ def _get_client():
 
 
 def _compute_overlap(job_desc: str, resume_text: str):
-    job_skills = extract_skills(job_desc)
+    """
+    Compute skill overlap between JD and resume.
+    Uses fallback extraction for JDs that are raw skill lists (no section headers).
+    """
+    from app.features.matching.router import _extract_jd_skills
+    job_skills = _extract_jd_skills(job_desc)
     resume_skills = extract_skills(resume_text)
-    matched = [s for s in job_skills if s in resume_skills]
-    gaps = [s for s in job_skills if s not in resume_skills]
-    extra = [s for s in resume_skills if s not in job_skills]
+    # Case-insensitive matching — preserve original casing in output
+    resume_lower = {s.lower(): s for s in resume_skills}
+    job_lower    = {s.lower(): s for s in job_skills}
+    matched = [resume_lower[s] for s in job_lower if s in resume_lower]
+    gaps    = [job_lower[s]    for s in job_lower if s not in resume_lower]
+    extra   = [resume_lower[s] for s in resume_lower if s not in job_lower]
     return job_skills, resume_skills, matched, gaps, extra
 
 
